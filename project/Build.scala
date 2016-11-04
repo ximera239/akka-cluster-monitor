@@ -92,12 +92,14 @@ object Dependencies {
   lazy val akkaSlf4j = "com.typesafe.akka" %% "akka-slf4j" % Versions.akka
   lazy val log4s = "org.log4s" %% "log4s" % "1.3.0"
   lazy val logging = Seq(logback, logbackCore, jclOverSlf4j, julToSlf4j, jcl99empty, akkaSlf4j, log4s)
+
+  lazy val leveldbOSX = "org.fusesource.leveldbjni" % "leveldbjni-osx" % "1.8"
 }
 
 object CommonSettings {
   import Dependencies._
 
-  lazy val overrides = Set(akka, scalaCompiler, scala) ++ logging
+  lazy val overrides = Set(akka, scalaCompiler, scala, leveldbOSX) ++ logging
 
   lazy val excludes = Seq(
   )
