@@ -32,7 +32,7 @@ object ExampleCluster {
   import Dependencies._
 
   lazy val moduleDependencies = Seq(
-    akka, akkaCluster
+    akka, akkaCluster, akkaContrib
   ) ++ logging //++ testDependencies
 
 
@@ -81,6 +81,8 @@ object Dependencies {
 
   lazy val akka = "com.typesafe.akka" %% "akka-actor" % Versions.akka
   lazy val akkaCluster = "com.typesafe.akka" %% "akka-cluster" % Versions.akka
+  lazy val akkaPersistence = "com.typesafe.akka" %% "akka-persistence-experimental" % Versions.akka
+  lazy val akkaContrib = "com.typesafe.akka" %% "akka-contrib" % Versions.akka
 
   lazy val jclOverSlf4j = "org.slf4j" % "jcl-over-slf4j" % "1.7.13"
   lazy val julToSlf4j = "org.slf4j" % "jul-to-slf4j" % "1.7.13"
