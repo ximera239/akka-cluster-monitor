@@ -3,85 +3,107 @@ package com.example.cluster1
 import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.contrib.pattern.{ClusterSharding, ClusterSingletonManager, ClusterSingletonProxy, ShardRegion}
 import com.example.logging.Logging
-
+import com.typesafe.config.ConfigFactory
+import scala.concurrent.duration._
 /**
   * Created by ezhoga on 26.08.16.
   */
 object Cluster1Server extends App {
   val Name = "some-name"
-  val system = ActorSystem("ClusterSystem")
-  system.actorOf(Props(new SimpleClusterListener), "simple-cluster-listener")
+  val System = ActorSystem("ClusterSystem")
 
-
-
-
-  val masterActor = {
-    system.actorOf(ClusterSingletonManager.props(
-      singletonProps = Props(classOf[SimpleClusterListener]),
-      singletonName = s"$Name-worker",
-      terminationMessage = PoisonPill,
-      role = Some("backend")),
-      name = s"$Name-singleton"
-    )
-
-    val a = system.actorOf(ClusterSingletonProxy.props(
-      singletonPath = s"/user/$Name-singleton/$Name-worker",
-      role = Some("backend")
-    ), Name)
-
-    class ShardWorker extends Actor with Logging {
-      def actorFactory(ourCheckType: String, version: Long):Props = {
-        Props.empty // stub
-      }
-
-      def receive = {
-        case GetClusteredActor(messageId) =>
-          log.trace(s"Clustered store-api actor proxy get message: GetClusteredActor(some message id)")
-          val _sender = sender()
-          val storeActor = context.child("stub"/*actorName(messageId)*/).fold {
-            Some(Actor.noSender)
-          } {ref => Some(ref)}.fold {
-            _sender ! ClusteredActorIsUnavailable
-          } {ref =>
-            _sender ! ClusteredActorResponse(ref)
-          }
-        case StopClusteredActor(storeId) =>
-          log.trace(s"Clustered store-api actor proxy get message: StopClusteredActor($storeId)")
-          context.child("stub"/*actorName(storeId)*/).foreach {ref =>
-            context.stop(ref)
-          }
-      }
-    }
-
-    object ShardWorker {
-      def props = Props(new ShardWorker)
-    }
-
+  val worker = {
     val idExtractor: ShardRegion.IdExtractor = {
-      case m@GetClusteredActor(id) ⇒ (id.toString, m)
-      case m@StopClusteredActor(id) ⇒ (id.toString, m)
+      case m@CheckHTTP(id) ⇒ (id, m)
+      case m@StopCheckHTTP(id) ⇒ (id, m)
     }
     val shardResolver: ShardRegion.ShardResolver = {
-      case m@GetClusteredActor(id) ⇒ (id % 12).toString
-      case m@StopClusteredActor(id) ⇒ (id % 12).toString
+      case m@CheckHTTP(id) ⇒ (id.hashCode % 12).toString
+      case m@StopCheckHTTP(id) ⇒ (id.hashCode % 12).toString
     }
-    val worker: ActorRef = ClusterSharding(system).start(
+    val worker: ActorRef = ClusterSharding(System).start(
       typeName = "check-api",
       entryProps = Some(ShardWorker.props),
       idExtractor = idExtractor,
       shardResolver = shardResolver)
 
-    a
+    worker
   }
 
+  System.scheduler.scheduleOnce(1.seconds, worker, CheckHTTP("http://www.facebook.com"))(System.dispatcher)
+  System.scheduler.scheduleOnce(2.seconds, worker, CheckHTTP("http://www.twitter.com"))(System.dispatcher)
 
   sys.addShutdownHook {
-    system.shutdown()
+    System.shutdown()
   }
 }
 
+class ShardWorker extends Actor with Logging {
+  def actorFactory(checkClass: String, version: Long):Props = {
+    Props(Class.forName(checkClass), version)
+  }
 
-case class GetClusteredActor(messageId: Long)
-case class StopClusteredActor(messageId: Long)
+  def receive = {
+    case msg@CheckHTTP(url) =>
+      log.trace(s"Clustered actor proxy get message: CheckHTTP($url)")
+      val _sender = sender()
+
+      val actor = context.child(ShardWorker.actorName(url)).fold {
+        Some(context.actorOf(HttpChecker.props(url)))
+      } {ref => Some(ref)}.fold {
+        _sender ! ClusteredActorIsUnavailable
+      } {ref =>
+        ref.tell(msg, _sender)
+      }
+
+    case StopCheckHTTP(url) =>
+      log.trace(s"Clustered store-api actor proxy get message: StopCheckHTTP($url)")
+      context.child(ShardWorker.actorName(url)).foreach {ref =>
+        context.stop(ref)
+      }
+  }
+}
+
+object ShardWorker {
+  def props = Props(new ShardWorker)
+  def actorName(s: String) = s
+}
+
+case class CheckHTTP(url: String)
+case class StopCheckHTTP(url: String)
 case object ClusteredActorIsUnavailable
 case class ClusteredActorResponse(ref: ActorRef)
+
+
+trait Checker
+
+class HttpChecker(http: String) extends Checker with Actor with Logging {
+  override def preStart(): Unit = {
+    import context.dispatcher
+
+    context.system.scheduler.schedule(1.second, 1.seconds) {
+      log.info(s"I'm checking $http")
+    }
+  }
+  def receive = Actor.emptyBehavior
+}
+object HttpChecker {
+  def props(url: String) = Props(new HttpChecker(url: String))
+}
+
+class SomeChecker extends Checker
+class AnotherChecker extends Checker
+
+
+class Environment {
+  private val configLocations = List(
+    "application.conf"
+  )
+
+  val config = configLocations.reverse.foldLeft(ConfigFactory.empty()) {
+    case (compoundConfig, next) if next.startsWith("/") =>
+      compoundConfig.withFallback(ConfigFactory.parseURL(getClass.getResource(next)))
+    case (compoundConfig, next) =>
+      compoundConfig.withFallback(ConfigFactory.load(next))
+  }
+}
