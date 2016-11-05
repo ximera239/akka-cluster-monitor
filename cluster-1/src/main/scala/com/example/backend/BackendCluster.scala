@@ -2,25 +2,29 @@ package com.example.backend
 
 import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props}
 import akka.contrib.pattern.{ClusterSharding, ClusterSingletonManager, ClusterSingletonProxy, ShardRegion}
+import akka.persistence.journal.leveldb.SharedLeveldbStore
+import com.example.Environment
 import com.example.logging.Logging
 import com.typesafe.config.ConfigFactory
+
 import scala.concurrent.duration._
 /**
   * Created by ezhoga on 26.08.16.
   */
 object BackendCluster extends App {
   val Name = "some-name"
-  val System = ActorSystem("ClusterSystem")
+  val System = ActorSystem("ClusterSystem", Environment.config)
+
+  val store = System.actorOf(Props[SharedLeveldbStore], "store")
 
   val worker = {
     val idExtractor: ShardRegion.IdExtractor = {
-      case m@CheckHTTP(id) ⇒ (id, m)
-      case m@StopCheckHTTP(id) ⇒ (id, m)
+      case m: ClusterMessage ⇒ (m.id, m)
     }
     val shardResolver: ShardRegion.ShardResolver = {
-      case m@CheckHTTP(id) ⇒ (id.hashCode % 12).toString
-      case m@StopCheckHTTP(id) ⇒ (id.hashCode % 12).toString
+      case m: ClusterMessage ⇒ (m.id.hashCode % 12).toString
     }
+
     val worker: ActorRef = ClusterSharding(System).start(
       typeName = "check-api",
       entryProps = Some(ShardWorker.props),
@@ -39,8 +43,20 @@ object BackendCluster extends App {
 
 }
 
-case class CheckHTTP(url: String)
-case class StopCheckHTTP(url: String)
+sealed trait ClusterMessage {
+  def id: String
+  def isStop: Boolean
+}
+
+case class CheckHTTP(url: String) extends ClusterMessage {
+  val id = url
+  val isStop = false
+}
+case class StopCheckHTTP(url: String) extends ClusterMessage {
+  val id = url
+  val isStop = true
+}
+
 case object ClusteredActorIsUnavailable
 case class ClusteredActorResponse(ref: ActorRef)
 

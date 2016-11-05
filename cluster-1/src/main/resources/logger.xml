@@ -10,7 +10,7 @@
     </appender>
 
     <logger name="dev.null" level="ERROR" />
-    <logger name="com.appath" level="TRACE" />
+    <logger name="com.example" level="TRACE" />
      <root level="TRACE">
         <appender-ref ref="STDOUT" />
     </root>

@@ -1,3 +1,5 @@
+import java.io.File
+
 import sbt._
 import sbt.Keys._
 
@@ -93,13 +95,17 @@ object Dependencies {
   lazy val log4s = "org.log4s" %% "log4s" % "1.3.0"
   lazy val logging = Seq(logback, logbackCore, jclOverSlf4j, julToSlf4j, jcl99empty, akkaSlf4j, log4s)
 
+  lazy val leveldbApi = "org.iq80.leveldb" % "leveldb-api" % "0.9"
+  lazy val leveldb = "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
   lazy val leveldbOSX = "org.fusesource.leveldbjni" % "leveldbjni-osx" % "1.8"
+
+  val leveldbSeq = Seq(leveldb, leveldbOSX, leveldbApi)
 }
 
 object CommonSettings {
   import Dependencies._
 
-  lazy val overrides = Set(akka, scalaCompiler, scala, leveldbOSX) ++ logging
+  lazy val overrides = Set(akka, scalaCompiler, scala) ++ leveldbSeq ++ logging
 
   lazy val excludes = Seq(
   )
@@ -114,7 +120,8 @@ object CommonSettings {
         Version99EmptyLoggers),
     autoScalaLibrary := false,
     dependencyOverrides ++= overrides,
-    excludeDependencies ++= excludes
+    excludeDependencies ++= excludes,
+    fork := true
 
   )
 
