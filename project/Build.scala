@@ -10,7 +10,7 @@ object ExampleBase extends Build {
       .settings(settings: _*)
 
 
-  lazy val exampleCluster1 =
+  lazy val backendCluster =
     module("cluster-1", dir = "cluster-1", settings = ExampleCluster.settings).
       aggregate(exampleCore).
       dependsOn(exampleCore)

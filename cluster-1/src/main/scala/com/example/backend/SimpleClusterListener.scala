@@ -1,4 +1,4 @@
-package com.example.cluster1
+package com.example.backend
 
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
@@ -6,6 +6,7 @@ import akka.actor.ActorLogging
 import akka.actor.Actor
 import com.example.logging.Logging
 
+@deprecated
 class SimpleClusterListener extends Actor with Logging {
 
   val cluster = Cluster(context.system)
