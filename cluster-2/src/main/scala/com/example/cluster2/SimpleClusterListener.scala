@@ -1,6 +1,6 @@
 package com.example.cluster2
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.cluster.Cluster
 import akka.cluster.ClusterEvent._
 
@@ -27,4 +27,8 @@ class SimpleClusterListener extends Actor with ActorLogging {
         member.address, previousStatus)
     case _: MemberEvent => // ignore
   }
+}
+
+object SimpleClusterListener {
+  def props = Props(new SimpleClusterListener)
 }

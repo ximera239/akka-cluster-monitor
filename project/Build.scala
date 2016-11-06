@@ -35,7 +35,7 @@ object ExampleCluster {
 
   lazy val moduleDependencies = Seq(
     akka, akkaCluster, akkaContrib
-  ) ++ logging //++ testDependencies
+  ) ++ spraySeq ++ logging //++ testDependencies
 
 
   lazy val settings = Seq(
@@ -72,8 +72,9 @@ object ExampleCore {
 }
 
 object Versions {
-  val akka = "2.3.15"
+  val akka = "2.3.16"
   val scala = "2.11.6"
+  val spray = "1.3.2"
 }
 
 object Dependencies {
@@ -99,7 +100,12 @@ object Dependencies {
   lazy val leveldb = "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
   lazy val leveldbOSX = "org.fusesource.leveldbjni" % "leveldbjni-osx" % "1.8"
 
+  lazy val spray = "io.spray" %% "spray-routing" % Versions.spray
+  lazy val sprayClient = "io.spray" %% "spray-client" % Versions.spray
+
   val leveldbSeq = Seq(leveldb, leveldbOSX, leveldbApi)
+
+  val spraySeq = Seq(spray, sprayClient)
 }
 
 object CommonSettings {

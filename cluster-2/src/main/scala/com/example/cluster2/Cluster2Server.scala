@@ -1,16 +1,32 @@
 package com.example.cluster2
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorSystem, PoisonPill, Props}
+import akka.contrib.pattern.{ClusterSingletonManager, ClusterSingletonProxy}
 
 /**
   * Created by ezhoga on 26.08.16.
   */
 object Cluster2Server extends App {
 
-  val system = ActorSystem("ClusterSystem")
-  system.actorOf(Props(new SimpleClusterListener), "simple-cluster-listener")
+  val System = ActorSystem("ClusterSystem")
 
-  sys.addShutdownHook {
-    system.shutdown()
+  val Name = "some-name"
+  val sv = {
+    System.actorOf(ClusterSingletonManager.props(
+      singletonProps = SimpleClusterListener.props,
+      singletonName = s"$Name-worker",
+      terminationMessage = PoisonPill,
+      role = Some("backend")),
+      name = s"$Name-singleton"
+    )
+
+    System.actorOf(ClusterSingletonProxy.props(
+      singletonPath = s"/user/$Name-singleton/$Name-worker",
+      role = Some("backend")
+    ), Name)
   }
+
+//  sys.addShutdownHook {
+//    System.shutdown()
+//  }
 }

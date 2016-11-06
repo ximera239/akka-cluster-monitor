@@ -1,7 +1,10 @@
 package com.example.backend
 
-import akka.actor.{Actor, Cancellable, Props}
+import akka.actor.{Actor, ActorIdentity, ActorRef, Cancellable, Identify, Props}
+import akka.cluster.Cluster
+import akka.cluster.ClusterEvent.{MemberEvent, MemberExited, MemberRemoved, UnreachableMember}
 import akka.persistence.PersistentActor
+import akka.persistence.journal.leveldb.SharedLeveldbJournal
 import com.example.logging.Logging
 
 import scala.concurrent.duration._
@@ -9,11 +12,25 @@ import scala.concurrent.duration._
 /**
   * Created by ezhoga on 05.11.16.
   */
-class ShardWorker extends Actor with Logging with PersistentActor {
+class ShardWorker extends Actor with Logging {
   var checker: Checker = _
   var cancellable: Cancellable = _
 
-  override def persistenceId: String = "Checker-" + self.path.name
+  override def preStart(): Unit = {
+    log.info(s"New ShardWorker created -> ${self.path.toSerializationFormat}")
+
+        val cluster = Cluster(context.system)
+        cluster.subscribe(self, classOf[MemberEvent])
+        cluster.subscribe(self, classOf[UnreachableMember])
+    super.preStart()
+  }
+
+  override def postStop(): Unit = {
+    val cluster = Cluster(context.system)
+    cluster.unsubscribe(self)
+
+    super.postStop()
+  }
 
   def processMessage(msg: ClusterMessage) =
     msg match {
@@ -39,16 +56,29 @@ class ShardWorker extends Actor with Logging with PersistentActor {
       case StopCheckHTTP(url) =>
         log.trace(s"CheckHTTP($url) is not running")
 
+      case something =>
+        log.trace(s"What's this? $something")
     }
 
-  override def receiveRecover: Receive = {
-    case msg: ClusterMessage ⇒ processMessage(msg)
-  }
-
-
-  def receiveCommand = {
+  def receive = {
     case msg: ClusterMessage =>
-      persist(msg)(processMessage)
+      processMessage(msg)
+
+
+    case UnreachableMember(member) =>
+
+      log.info(s"Member ${member.address} -> UnreachableMember")
+
+    //      recoverAddress(member.address)
+
+    case MemberRemoved(member, _) =>
+    //      removeAddress(member.address)
+
+      log.info(s"Member ${member.address} -> MemberRemoved")
+
+    case MemberExited(member) =>
+    //      removeAddress(member.address)
+      log.info(s"Member ${member.address} -> MemberExited")
   }
 }
 
